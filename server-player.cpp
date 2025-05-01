@@ -23,9 +23,9 @@ int main() {
 
         if (socket.receive(packet, senderIp, senderPort) == sf::Socket::Done) {
             int playerId;
-            float x, y, z, dirY;
-            packet >> playerId >> x >> y >> z >> dirY;
-            //std::cout<<playerId<<' '<<x<<' '<<y<<' '<<z<<' '<<dirY<<'\n';
+            float x, y, z, dirY, dirX;
+            packet >> playerId >> x >> y >> z >> dirY >> dirX;
+            //std::cout<<playerId<<' '<<x<<' '<<y<<' '<<z<<' '<<dirY<<dirX<<'\n';
 
             if (playerId == 1) {
                 player1Ip = senderIp;
@@ -34,7 +34,7 @@ int main() {
 
                 if (player2Connected) {
                     sf::Packet outPacket;
-                    outPacket << playerId << x << y << z << dirY;
+                    outPacket << playerId << x << y << z << dirY << dirX;
                     socket.send(outPacket, player2Ip, player2Port);
                 }
 
@@ -45,13 +45,13 @@ int main() {
 
                 if (player1Connected) {
                     sf::Packet outPacket;
-                    outPacket << playerId << x << y << z << dirY;
+                    outPacket << playerId << x << y << z << dirY << dirX;
                     socket.send(outPacket, player1Ip, player1Port);
                 }
             }
         }
 
-        sf::sleep(sf::milliseconds(1));
+        sf::sleep(sf::milliseconds(2));
     }
 
     return 0;
