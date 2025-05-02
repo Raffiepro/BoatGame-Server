@@ -1,13 +1,13 @@
 #include <SFML/Network.hpp>
+#include <unordered_map>
 #include <iostream>
 
-sf::IpAddress player1Ip;
-unsigned short player1Port = 0;
-bool player1Connected = false;
+struct playerDat {
+    sf::IpAddress ip;
+    unsigned short port;
+};
 
-sf::IpAddress player2Ip;
-unsigned short player2Port = 0;
-bool player2Connected = false;
+std::unordered_map<unsigned char, playerDat> players;
 
 int main() {
     sf::UdpSocket socket;
@@ -16,42 +16,32 @@ int main() {
 
     std::cout << "Server started on port 54000.\n";
 
-    while (true) {
-        sf::Packet packet;
-        sf::IpAddress senderIp;
-        unsigned short senderPort;
 
-        if (socket.receive(packet, senderIp, senderPort) == sf::Socket::Done) {
+    sf::Packet packet;
+    playerDat p;
+    sf::IpAddress& senderIp = p.ip;
+    unsigned short& senderPort = p.port;
+
+    while (true) {
+        while (socket.receive(packet, senderIp, senderPort) == sf::Socket::Done) {
             int playerId;
             float x, y, z, dirY, dirX;
             packet >> playerId >> x >> y >> z >> dirY >> dirX;
-            //std::cout<<playerId<<' '<<x<<' '<<y<<' '<<z<<' '<<dirY<<dirX<<'\n';
 
-            if (playerId == 1) {
-                player1Ip = senderIp;
-                player1Port = senderPort;
-                player1Connected = true;
+            players[playerId] = p;
+            //std::cout<<playerId<<' '<<x<<' '<<y<<' '<<z<<' '<<dirY<<' '<<dirX<<'\n';
 
-                if (player2Connected) {
-                    sf::Packet outPacket;
-                    outPacket << playerId << x << y << z << dirY << dirX;
-                    socket.send(outPacket, player2Ip, player2Port);
-                }
-
-            } else if (playerId == 2) {
-                player2Ip = senderIp;
-                player2Port = senderPort;
-                player2Connected = true;
-
-                if (player1Connected) {
-                    sf::Packet outPacket;
-                    outPacket << playerId << x << y << z << dirY << dirX;
-                    socket.send(outPacket, player1Ip, player1Port);
+            sf::Packet outPacket;
+            outPacket << playerId << x << y << z << dirY << dirX;
+            for(const auto& i : players) {
+                if(i.first!=playerId) {
+                    socket.send(outPacket, i.second.ip, i.second.port);
+                    //std::cout<<"Sent packet to "<<i.second.ip<<':'<<i.second.port<<'\n';
                 }
             }
+            packet.clear();
         }
-
-        sf::sleep(sf::milliseconds(2));
+        //sf::sleep(sf::milliseconds(1)); // still reduce CPU usage
     }
 
     return 0;
