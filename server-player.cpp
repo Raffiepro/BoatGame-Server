@@ -1,10 +1,11 @@
 #include <SFML/Network.hpp>
 #include <unordered_map>
-#include <thread>
 #include <iostream>
 
+//#include <thread>
+
 struct playerDat {
-    sf::IpAddress ip;
+    std::optional<sf::IpAddress> ip;
     unsigned short port;
     float x,y,z,dirY,dirX;
 };
@@ -39,35 +40,37 @@ void renderText() {
 
 int main() {
     sf::UdpSocket socket;
-    socket.bind(54000);
+    sf::Socket::Status bindStatus = socket.bind(54000);
     socket.setBlocking(false);
 
     std::cout << "Server started on port 54000.\n";
 
-    sf::Packet packet;
     playerDat p;
-    sf::IpAddress& senderIp = p.ip;
+    std::optional<sf::IpAddress>& senderIp = p.ip;
     unsigned short& senderPort = p.port;
 
-    std::thread r(renderText);
+    //std::thread r(renderText);
 
     while (true) {
-        while (socket.receive(packet, senderIp, senderPort) == sf::Socket::Done) {
+        sf::Packet packet;
+        if(socket.receive(packet, senderIp, senderPort) == sf::Socket::Status::Done) {
             int playerId;
             packet >> playerId >> p.x >> p.y >> p.z >> p.dirY >> p.dirX;
 
             players[playerId] = p;
-            //std::cout<<playerId<<' '<<x<<' '<<y<<' '<<z<<' '<<dirY<<' '<<dirX<<'\n';
+            //std::cout<<playerId<<' '<<p.x<<' '<<p.y<<' '<<p.z<<' '<<p.dirY<<' '<<p.dirX<<'\n';
 
             sf::Packet outPacket;
             outPacket << playerId << p.x << p.y << p.z << p.dirY << p.dirX;
             for(const auto& i : players) {
                 if(i.first!=playerId) {
-                    socket.send(outPacket, i.second.ip, i.second.port);
-                    //std::cout<<"Sent packet to "<<i.second.ip<<':'<<i.second.port<<'\n';
+                    if(auto ip = i.second.ip) {
+                        sf::Socket::Socket::Status stat;
+                        stat = socket.send(outPacket, *ip, i.second.port);
+                    }
+                    //std::cout<<"Sent packet to "<<*i.second.ip<<':'<<i.second.port<<'\n';
                 }
             }
-            packet.clear();
         }
         //sf::sleep(sf::milliseconds(1)); // still reduce CPU usage
     }
