@@ -1,78 +1,44 @@
-#include <SFML/Network.hpp>
-#include <unordered_map>
+#include "mininet.hpp"
+#include <vector>
 #include <iostream>
 
-//#include <thread>
-
 struct playerDat {
-    std::optional<sf::IpAddress> ip;
     unsigned short port;
     float x,y,z,dirY,dirX;
 };
 
-std::unordered_map<unsigned char, playerDat> players;
-
-void renderText() {
-    while(true) {
-        #ifdef _WIN32
-        system("cls");
-        #else
-        system("clear");
-        #endif
-        for(int y=-5;y<5;y++) {
-            for(int x=-10;x<10;x++) {
-                bool foundPlayer=false;
-                for(const auto& i : players) {
-                    if(x==(int)i.second.x && y==(int)i.second.z) {
-                        foundPlayer=true;
-                    }
-                }
-                if(foundPlayer) {
-                    std::cout<<'#';
-                } else {
-                    std::cout<<' ';
-                }
-            }
-            std::cout<<'\n';
-        }
-    }
+int sockaddr_in_equal(const struct sockaddr_in *a, const struct sockaddr_in *b) {
+    return (a->sin_family == b->sin_family) &&
+           (a->sin_port == b->sin_port) &&
+           (a->sin_addr.s_addr == b->sin_addr.s_addr);
 }
 
+std::vector<sockaddr_in> players;
+
 int main() {
-    sf::UdpSocket socket;
-    sf::Socket::Status bindStatus = socket.bind(54000);
-    socket.setBlocking(false);
+    UDPServer s(54000);
+    s.setBlocking(false);
 
-    std::cout << "Server started on port 54000.\n";
+    std::cout << "Mewo meow meow mowe meow mow mew meeow on port 54000.\n";
 
-    playerDat p;
-    std::optional<sf::IpAddress>& senderIp = p.ip;
-    unsigned short& senderPort = p.port;
-
-    //std::thread r(renderText);
+    char buff[21];
+    memset(buff, 0, 21);
 
     while (true) {
-        sf::Packet packet;
-        if(socket.receive(packet, senderIp, senderPort) == sf::Socket::Status::Done) {
-            int playerId;
-            packet >> playerId >> p.x >> p.y >> p.z >> p.dirY >> p.dirX;
-
-            players[playerId] = p;
-            //std::cout<<playerId<<' '<<p.x<<' '<<p.y<<' '<<p.z<<' '<<p.dirY<<' '<<p.dirX<<'\n';
-
-            sf::Packet outPacket;
-            outPacket << playerId << p.x << p.y << p.z << p.dirY << p.dirX;
-            for(const auto& i : players) {
-                if(i.first!=playerId) {
-                    if(auto ip = i.second.ip) {
-                        sf::Socket::Socket::Status stat;
-                        stat = socket.send(outPacket, *ip, i.second.port);
-                    }
-                    //std::cout<<"Sent packet to "<<*i.second.ip<<':'<<i.second.port<<'\n';
+        sockaddr_in client;
+        ssize_t size = s.recv(&client, buff, 21);
+        
+        if (size > 0) {
+            bool found = false;
+            for(auto& i : players) {
+                if(!sockaddr_in_equal(&client, &i)) {
+                    s.send(&i, buff, size);
                 }
+                else
+                    found = true;
             }
+            if(!found)  players.push_back(client);
         }
-        //sf::sleep(sf::milliseconds(1)); // still reduce CPU usage
     }
     return 0;
 }
